@@ -127,7 +127,7 @@ func (c *greetingServiceClient) HelloBiStreams(ctx context.Context, opts ...grpc
 type GreetingService_HelloBiStreamsClient interface {
 	Send(*HelloRequest) error
 	Recv() (*HelloResponse, error)
-	grpc.ClientStream
+	grpc.ClientStream // これも使える！！！
 }
 
 type greetingServiceHelloBiStreamsClient struct {

@@ -47,7 +47,8 @@ func main() {
 		fmt.Println("1: send Request")
 		fmt.Println("2: HelloServerStream Method")
 		fmt.Println("3: HelloClientStream Method")
-		fmt.Println("4: exit")
+		fmt.Println("4: HelloBiStream Method")
+		fmt.Println("5: exit")
 		fmt.Print("please enter >")
 
 		scanner.Scan()
@@ -61,6 +62,8 @@ func main() {
 		case "3":
 			HelloClientStream()
 		case "4":
+			HelloBiStreams()
+		case "5":
 			fmt.Println("bye.")
 			goto M
 		}
@@ -158,6 +161,62 @@ func HelloClientStream() {
 	} else {
 		fmt.Println(res.GetMessage())
 	}
+}
+
+func HelloBiStreams() {
+	stream, err := client.HelloBiStreams(context.Background())
+	
+	// エラーありの場合はそのままエラーを出力して終了
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	sendNum := 5
+	fmt.Printf("Please enter %d names.\n", sendNum)
+
+	var sendEnd, recvEnd bool
+	sendCount := 0
+
+	for !(sendEnd && recvEnd) {
+		// 送信処理
+		if !sendEnd {
+			scanner.Scan()
+			name := scanner.Text()
+
+			sendCount++
+			if err := stream.Send(&hellopb.HelloRequest{
+				Name: name,
+			}); err != nil { // 送信の途中でエラーが発生した場合
+				fmt.Println(err)
+				sendEnd = true
+			}
+
+			if sendCount == sendNum {
+				sendEnd = true
+				// client.HelloBiStreamsから得られるストリームは、SendメソッドとRecvメソッド以外にも、grpc.ClientStreamインタフェースが持つメソッドセットも使うことができる
+				// CloseSend closes the send direction of the stream. It closes the stream
+				if err := stream.CloseSend(); err != nil {
+					fmt.Println(err)
+				}
+			}
+		}
+
+		// 受信処理
+		if !recvEnd {
+			// サーバからレスを受ける．サーバ側からストリームが終端されている時は，
+			// Recvメソッド第一戻り値にnilが第二戻り値にはio.EOFが格納されている
+			if res, err := stream.Recv(); err != nil { // 受信中にエラーが発生した時
+				if !errors.Is(err, io.EOF) { // エラーがio.EOFじゃないつまりストリームが終了していないにも関わらずのエラ-
+					fmt.Println(err)
+				}
+				recvEnd = true // エラーがio.EOFの時．サーバからはこれ以上送信されないのでrecvを終了する
+			} else { // エラーなし．受信したメッセージを表示
+				fmt.Println(res.GetMessage())
+			}
+		}
+	}
+
 }
 
 // ストリームで一連の通信を管理している．
