@@ -4,7 +4,9 @@ import (
 	// (一部抜粋)
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"log"
 	hellopb "mygrpc/pkg/grpc"
 	"os"
@@ -43,7 +45,8 @@ func main() {
 
 	for {
 		fmt.Println("1: send Request")
-		fmt.Println("2: exit")
+		fmt.Println("2: HelloServerStream Method")
+		fmt.Println("3: exit")
 		fmt.Print("please enter >")
 
 		scanner.Scan()
@@ -52,8 +55,9 @@ func main() {
 		switch in {
 		case "1":
 			Hello()
-
 		case "2":
+			HelloServerStream()
+		case "3":
 			fmt.Println("bye.")
 			goto M
 		}
@@ -61,6 +65,8 @@ func main() {
 M:
 }
 
+
+// Unary RPCがレスポンスを受け取るところ
 func Hello() {
 	fmt.Println("Please enter your name.")
 	scanner.Scan()
@@ -76,5 +82,40 @@ func Hello() {
 		fmt.Println(err)
 	} else {
 		fmt.Println(res.GetMessage())
+	}
+}
+
+func HelloServerStream() {
+	fmt.Println("Please enter your name.")
+	scanner.Scan()
+	name := scanner.Text()
+
+	req := &hellopb.HelloRequest{
+		Name: name,
+	}
+
+	// サーバから複数回レスポンスを受けるためのストリームを得る
+	stream, err := client.HelloServerStream(context.Background(), req)
+
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	for {
+		// ストリームからレスポンスを得る
+		// Recvメソッドでレスポンスを受け取るとき、これ以上受け取るレスポンスがないという状態なら、第一戻り値にはnil、第二戻り値のerrにはio.EOFが格納されています
+		res, err := stream.Recv()
+
+		if errors.Is(err, io.EOF) {
+			fmt.Println("all the responses have already received.")
+			break
+		}
+
+		if err != nil {
+			fmt.Println(err)
+		}
+
+		fmt.Println(res)
 	}
 }
