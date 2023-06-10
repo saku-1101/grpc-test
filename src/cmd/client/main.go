@@ -46,7 +46,8 @@ func main() {
 	for {
 		fmt.Println("1: send Request")
 		fmt.Println("2: HelloServerStream Method")
-		fmt.Println("3: exit")
+		fmt.Println("3: HelloClientStream Method")
+		fmt.Println("4: exit")
 		fmt.Print("please enter >")
 
 		scanner.Scan()
@@ -58,6 +59,8 @@ func main() {
 		case "2":
 			HelloServerStream()
 		case "3":
+			HelloClientStream()
+		case "4":
 			fmt.Println("bye.")
 			goto M
 		}
@@ -66,7 +69,7 @@ M:
 }
 
 
-// Unary RPCがレスポンスを受け取るところ
+// Unary RPCが引数を受け取り結果を返却するi/o
 func Hello() {
 	fmt.Println("Please enter your name.")
 	scanner.Scan()
@@ -85,6 +88,7 @@ func Hello() {
 	}
 }
 
+// Server Streaming RPCが引数を受け取り結果を返却するi/o
 func HelloServerStream() {
 	fmt.Println("Please enter your name.")
 	scanner.Scan()
@@ -103,7 +107,7 @@ func HelloServerStream() {
 	}
 
 	for {
-		// ストリームからレスポンスを得る
+		// ストリームからHelloResponse型レスポンスを得る
 		// Recvメソッドでレスポンスを受け取るとき、これ以上受け取るレスポンスがないという状態なら、第一戻り値にはnil、第二戻り値のerrにはio.EOFが格納されています
 		res, err := stream.Recv()
 
@@ -119,3 +123,41 @@ func HelloServerStream() {
 		fmt.Println(res)
 	}
 }
+
+// Client Streaming RPCが引数を受け取り結果を返却するi/o
+func HelloClientStream() {
+	// service(client)のHelloClientStreamメソッドの返り値から
+	// 第一引数のGreetingService_HelloClientStreamClientインターフェースをstreamとして
+	// 第二引数をerrとして受け取る
+	stream, err := client.HelloClientStream(context.Background())
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	sendCount := 5
+	fmt.Printf("Please enter %d names.\n", sendCount)
+	
+	// サーバに複数回リクエストを送信
+	for i := 0; i < sendCount; i++ {
+		scanner.Scan()
+		name := scanner.Text()
+		// GreetingService_HelloClientStreamClientインターフェースを表現するstreamからHelloRequest型の引数と共にSendメソッドを使用してリクエストを送る
+		if err := stream.Send(&hellopb.HelloRequest{
+			Name: name,
+		}); err != nil {
+			fmt.Println(err)
+			return
+		}
+	}
+
+	// リクエストを送信していたstreamのCloseAndRecvメソッドを呼び出すことでストリーム終端の伝達と、レスポンスを取得を行う
+	res, err := stream.CloseAndRecv()
+	if err != nil {
+		fmt.Println(err)
+	} else {
+		fmt.Println(res.GetMessage())
+	}
+}
+
+// ストリームで一連の通信を管理している．
