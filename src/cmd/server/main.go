@@ -72,6 +72,35 @@ func (s *myServer) HelloClientStream(stream hellopb.GreetingService_HelloClientS
 	}
 }
 
+// Bidirectional streaming RPC
+func (s *myServer) HelloBiStreams(stream hellopb.GreetingService_HelloBiStreamsServer) error {
+	for {
+		// リクエスト受信
+		req, err := stream.Recv()
+
+		// 得られたエラーがio.EOFならばもうリクエストは送られてこないのでnilで処理終了
+		if errors.Is(err, io.EOF) {
+			return nil
+		}
+
+		// エラーの場合はそのままエラーを返して終了
+		if err != nil {
+			return err
+		}
+		
+		// 受信したリクエストから名前を取得して応答メッセージを作成
+		message := fmt.Sprintf("Hello, %v!", req.GetName())
+		// 応答メッセージをクライアントに送信
+		if err := stream.Send(&hellopb.HelloResponse{
+			Message: message,
+		}); err != nil { //送信中にエラーが発生した場合はそのままエラーを返して終了
+			return err
+		}
+
+		// クライアントはストリームを介して複数のリクエストを送信し, サーバーは各リクエストに対して個別の応答を返すことができる
+	}
+}
+
 // 👇myServer型を提供する処理の実装
 func NewMyServer() *myServer {
 	return &myServer{}

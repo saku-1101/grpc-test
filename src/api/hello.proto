@@ -12,10 +12,17 @@ package myapp;
 service GreetingService {
 	// サービスが持つメソッドの定義（Unary RPC）
 	rpc Hello (HelloRequest) returns (HelloResponse); 
+
+	// grpcのストリーミングはHTTP/2のおかげで成り立っている
+	// HTTP/2では1つの送受信データを複数個のフレームに分割してやり取りできる
+	// このフレームで送るデータは最後です」ということを、どこかのタイミングで知らせてやることでストリームを終了できる
+
 	// サーバーストリーミングRPC(一つのリクエストに対して複数のレスポンスが返ってくる)
 	rpc HelloServerStream (HelloRequest) returns (stream HelloResponse);
 	// クライアントストリーミングRPC(複数のリクエストに対して一つのレスポンス)
 	rpc HelloClientStream (stream HelloRequest) returns (HelloResponse);
+	// 双方向ストリーミングRPC(サーバから，クライアントからそれぞれのストリームは独立なため，サーバ・クライアントストリーミングのようなこともできるし，ping-pongのようなこともできる)
+	rpc HelloBiStreams (stream HelloRequest) returns (stream HelloResponse);
 }
 
 // 型の定義
