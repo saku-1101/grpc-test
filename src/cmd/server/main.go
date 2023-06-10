@@ -3,7 +3,9 @@ package main
 import (
 	// (一部抜粋)
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"log"
 	hellopb "mygrpc/pkg/grpc"
 	"net"
@@ -20,7 +22,7 @@ type myServer struct {
 	hellopb.UnimplementedGreetingServiceServer
 }
 
-// 「HelloRequest型のリクエストを受け取って、HelloResponse型のレスポンスを返す」Helloメソッド
+// 「HelloRequest型のリクエストを受け取りHelloResponse型のレスポンスを返す」ロジック
 func (s *myServer) Hello(ctx context.Context, req *hellopb.HelloRequest) (*hellopb.HelloResponse, error) {
 	// リクエストからnameフィールドを取り出して
 	// "Hello, [名前]!"というレスポンスを返す
@@ -30,7 +32,7 @@ func (s *myServer) Hello(ctx context.Context, req *hellopb.HelloRequest) (*hello
 }
 // 👆Helloメソッドを実装した自作サービス構造体myServer型の定義完成
 
-// Server Stream RPCでレスポンスを返すHelloServerStreamメソッド
+// Server Streaming RPCでリクエストを受け取りレスポンスを返すロジック
 func (s *myServer) HelloServerStream(req *hellopb.HelloRequest, stream hellopb.GreetingService_HelloServerStreamServer) error {
 	resCount := 5
 	for i := 0; i < resCount; i++ {
@@ -45,6 +47,29 @@ func (s *myServer) HelloServerStream(req *hellopb.HelloRequest, stream hellopb.G
 	}
 	// returnでメソッドをおわらせる＝ストリームの終端
 	return nil
+}
+
+// Client Streaming RPCでリクエストを受け取りレスポンスを返すロジック
+func (s *myServer) HelloClientStream(stream hellopb.GreetingService_HelloClientStreamServer) error {
+	nameList := make([]string, 0)
+	for {
+		// streamのRecvメソッドを読んでリクエスト内容を受け取る
+		// これを何度も呼ぶことにより，クライアントから複数回送られてくるリクエスト内容を受け取る
+		req, err := stream.Recv()
+		
+		// 全部受け取った後の処理
+		if errors.Is(err, io.EOF) {
+			message := fmt.Sprintf("Hello, %v!", nameList)
+			// SendAndCloseを呼ぶことでレスポンスを返す
+			return stream.SendAndClose(&hellopb.HelloResponse{
+				Message: message,
+			})
+		}
+		if err != nil {
+			return err
+		}
+		nameList = append(nameList, req.GetName())
+	}
 }
 
 // 👇myServer型を提供する処理の実装
